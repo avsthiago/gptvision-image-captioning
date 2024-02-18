@@ -68,14 +68,14 @@ def render_df():
     )
 
 
-def ask_llm(image_base64):
+def generate_description(image_base64):
     response = client.chat.completions.create(
         model="gpt-4-vision-preview",
         messages=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "What's in this image? Be brief."},
+                    {"type": "text", "text": st.session_state.text_prompt},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -90,26 +90,31 @@ def ask_llm(image_base64):
     return response.choices[0].message.content
 
 
-def generate_descriptions():
-    st.session_state.df["description"] = st.session_state.df["image"].apply(ask_llm)
+def update_df():
+    indexes = st.session_state.df[st.session_state.df["description"] == ""].index
+    for idx in indexes:
+        description = generate_description(st.session_state.df.loc[idx, "image"])
+        st.session_state.df.loc[idx, "description"] = description
 
 
 if st.session_state.images:
     generate_df()
 
+    st.text_input("Prompt", value="What's in this image?", key="text_prompt")
+
     col1, col2 = st.columns([1, 1])
 
     with col1:
         if st.button("Generate Image Descriptions", use_container_width=True):
-            generate_descriptions()
+            update_df()
     
     with col2:    
-            st.download_button(
-                    "Download descriptions as CSV",
-                    st.session_state.df.drop(['image', "image_id"], axis=1).to_csv(index=False),
-                    "descriptions.csv",
-                    "text/csv",
-                    use_container_width=True
-            )
+        st.download_button(
+                "Download descriptions as CSV",
+                st.session_state.df.drop(['image', "image_id"], axis=1).to_csv(index=False),
+                "descriptions.csv",
+                "text/csv",
+                use_container_width=True
+        )
 
     render_df()
